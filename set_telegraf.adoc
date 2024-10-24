@@ -20,527 +20,118 @@
 
 :doctype: book
 
-= DRAFT telegraf installation for FS computers
+= DRAFT set_telegraf for FS computers
 E. Himwich, C. Frock, C. Coughlin, K. Imai
-Version 1.6 - January 2024
+Version 0.0 - October 2024
 
 :sectnums:
 
 :toc:
 == Introduction
 
-IMPORTANT: #As of FSL11, this document is obsolete.#
-
-This document provides instructions for installing _telegraf_ (a
-collector for the MAS) for Field System computers. It assumes that
-there are both _operational_ and _spare_ computers in use. They are
-referred to as _fs1_ and _fs2_, respectively. You should of course
-replace those with the names of the computers you are using, if
-different. If there is only one computer, you can omit the actions
-involving _fs2_ (and not install the _set_telegraf_ utility).
-
-With two computers, _telegraf_ should be installed on both _fs1_ and
-_fs2_. The one on _fs1_ collects data from various devices and the
-computer performance information. It is nominally the operational
-installation. The one on _fs2_ just collects computer performance
-information by default. The _set_telegraf_ utility (see the section
-<<set_telegraf utility>> below for the details) can be used to change
-which system is the operational one and collects the data from the
-devices.
-
-The repository for _telegraf_ can be found at
-https://github.com/nvi-inc/telegraf.
-
-The installation assumes that _gromet_ is used to serve met. data. If
-_metserver_ is being used instead, you should either replace it with
-_gromet_ _or_ substitute _metserver_ in place of _gromet_ in the
-<<fs1 installation>> section. Additional instructions for using
-_metserver_ or no met. data server are included as well.
-
-If you are not already using _gromet_ and want to, instructions for
-installing _gromet_ are in provided in _gromet_ installation document
-at https://github.com/nvi-inc/gromet_install. If you plan to use
-_gromet_, installing it first or combining it with _telegraf_ is
-described in the <<Combining with gromet installation>> section.
-
-The installation process uses the _recoverable testing_ procedure of
-FSL11 with a RAID to enable easy recovery in case of a problem. This
-has the advantage that if (i) actions are missing from the _telegraf_
-installation procedure or (ii) errors occur, and either or both can't
-be recovered from directly, it is relatively easy to return to the
-original state and start over. If you are using some other FSL__x__ or
-don't have a RAID, you should skip using the recoverable testing
-procedure or substitute a different one.
-
-== Combining with gromet installation
-
-It is possible to combine the installation of _telegraf_ with that of
-_gromet_. The only downside of that is that if it is necessary to
-revert the _telegraf_ installation, the installed _gromet_ will be
-lost also. However, that should be fairly easy to recover on the next
-attempt. The complete _gromet_ installation can be done before the
-_telegraf_ installation to decouple them.
-
-
-TIP: To decouple the _gromet_ and _telegraf_ installation, complete
-the actions in the "`Restoring RAIDs`" section (at
-https://nvi-inc.github.io/gromet_install/#_restoring_raids) in the
-__gromet__ installation document and allow the RAIDs to fully recover
-before using this document to install __telegraf__.
-
-To combine the two installations:
-
-. Follow the instructions in the _gromet_ installation document (at
-https://nvi-inc.github.io/gromet_install/) down to, but not including,
-the "`Restoring RAIDs`" section at
-https://nvi-inc.github.io/gromet_install/#_restoring_raids.
-
-. Then proceed to the <<fs1 installation>> section below. You should
-skip <<Preparing fs1>> and <<Preparing fs2>> steps that follow.
-
-If it is necessary to revert the combined installation, follow the
-instructions in the <<Reverting the installation>> section below.
-
-== Reverting the installation
-
-If it is not possible finish the installation before the next
-operational use of the system or disk rotation, the systems can be
-reverted to their previous configuration. For each system that had the
-primary disk _dropped_ follow the _failed_ branch of the recoverable
-testing procedure at
-https://nvi-inc.github.io/fsl10/raid.html#_recoverable_testing.
-
-It will require several hours for the refresh operation
-to complete. The system can be used for operations, but not a disk
-rotation, while the refresh is in progress. Later, the installation
-can be tried again from scratch when it is convenient.
-
-CAUTION: If you use _metserver_, depending on where in the process the
-decision to revert the installation is made, it may also be necessary
-to move the MET4A and wind sensor serial connectors back to _fs1_.
-
-When reverting the installation, you may also need to re-enable the
-data logger access on MAS, as described in section
-<<Disabling data logger access from the MAS>> below.
-
-== Disabling data logger access from the MAS
-
-The _telegraf_ installation on the FS computers will query the data
-logger. If the _telegraf_ on the MAS computer is already accessing the
-data logger, it will need to be disabled to avoid a conflict. To
-disable accessing the data logger on the MAS computer, comment out the
-data logger lines in the _telegraf_ configuration file on the MAS
-computer and restart _telegraf_ there.
-
-If the installation needs to be reverted (see more details in section
-<<Reverting the installation>> above) you will need to re-enable data logger
-access on the MAS computer to return to the previous configuration. To
-do this, uncomment the relevant lines in the _telegraf_ configuration
-file on the MAS computer and restart _telegraf_ there.
-
-== Firewall setup
-
-If you have an internal site firewall make sure it is set to allow
-_fs1_ and _fs2_ to push data to the MAS.
-
-== fs1 installation
-
-All instructions in this section are to be performed on the _fs1_
-computer.
-
-=== Preparing fs1
-
-CAUTION: If you are combining the _gromet_ and _telegraf_
-installations and have _not_ restored the RAIDs as part of the
-_gromet_ installation, you should skip this step and proceed to the
-next step, <<Installing telegraf on fs1>>, below.
-
-. Follow the directions for the recoverable test procedure at
-https://nvi-inc.github.io/fsl10/raid.html#_recoverable_testing.
-
-. Once the primary disk has been dropped from the RAID, move onto the
-next step, <<Installing telegraf on fs1>>, below.
-
-=== Installing telegraf on fs1
-
-. Remove any previous installation of _telegraf_.
-
-. As _root_:
-
-.. Clone the _telegraf_install_ repository:
-
-   cd /usr2
-   git clone https://github.com/nvi-inc/telegraf_install.git
-   chown -R prog.rtx telegraf_install
-
-.. If not already present, add aliases to _/etc/hosts_ for the
-datalogger as `datalog`; for the MAS, as `mas`; for the 12m antenna,
-as `12m`. If you want to use different aliases you will need to update
-the values used in the configuration file.
-
-.. Execute (copy-and-paste _will_ work for the wrapped second line):
-
-    cd ~
-    wget https://github.com/nvi-inc/telegraf/releases/download/v1.14.2-vlbi-0.5.2/telegraf-vlbi_1.14.2.vlbi.0.5.2-1_amd64.deb
-    dpkg -i telegraf-vlbi_1.14.2.vlbi.0.5.2-1_amd64.deb
-    cp /usr2/telegraf_install/telegraf.conf /etc/telegraf
-
-+
-
-TIP: For the _cp_ command, you may be prompted to confirm overwriting
-_/etc/telegraf/telegraf.conf_. It should be safe to answer `*y*`.
-
-+
-
-NOTE: If all of the devices covered in the example _telegraf.conf_
-file are not available for your system, you may want to install a
-reduced configuration file. It can be setup to only access the
-computer performance information and, optionally, some sub-set of the
-other devices. You can edit the _/etc/telegraf/telegraf.conf_ file to
-comment out the features you don't want. The _telegraf.conf.partial_
-file may be useful for comparison. It could also be used as is, if you
-place it in _/etc/telegraf/_ as _telegraf.conf_.
-
-+
-
-[CAUTION]
-====
-
-The `metserver` (_metserver_ or _gromet_) host in the configuration
-file is by default set to the `127.0.0.1` for the case of the
-`metserver` serving to the local host only. If it serves to the
-network, use an alias for _fs1_ from _/etc/hosts_ instead.
-
-IMPORTANT: In this case, when installing on _fs2_, use an alias for
-_fs2_.
-
-If you don't have a `metserver`, you should comment out the
-`metserver` lines.
-
-====
-
-.. Set the _telegraf_ user name and password in
- _/etc/telegraf/telegraf.conf_ (_not_ in the copy in
- _/usr2/telegraf_install/telegraf.conf_).
-
-.. Execute:
-
-    systemctl restart telegraf
-
-+
-
-NOTE: _telegraf_ is ``enable``d by default, so it will start
-automatically after a reboot.
-
-=== Testing telegraf on fs1
-
-. Verify that there are no errors for communication with the antenna
-by the FS and the ACI program.
-
-+
-
-If there are errors, disable _telegraf_ antenna access, as _root_:
-
-.. Edit _/etc/telegraf.conf_ and comment out the block:
-
-    [[inputs.modbus_antenna]]
-    ## modbus antenna controller type
-    antenna_type = "intertronics12m"
-    ## network address in form ip:port
-    address = "12m:502"
-
-.. Execute:
-
-    systemctl restart telegraf
-
-
-. [[no_problems]]<<no_problems,Verify there are no other problems>>:
-
-.. Check in _grafana_ on the MAS to see if the antenna (if antenna
-access wasn't disabled) and met. data are updating.
-
-.. A minimal test with the FS to assure that things are working would
-include:
-
-... A quick pointing check, which should be nominal and should not
-have communication errors with the antenna.
-
-+
-
-... If _gromet_ (or _metserver_) is in use, try the `wx` command to
-verify met data is still available.
-
-== fs2 installation
-
-Once _fs1_ has been successfully set-up, the _fs2_ disks, running in
-the spare computer, can be set-up. Do not proceed with this section
-until _telegraf_ is working on _fs1_.
-
-=== Preparing fs2
-
-CAUTION: If you are combining the _gromet_ and _telegraf_
-installations and have _not_ restored the RAIDs as part of the
-_gromet_ installation, you should skip this step. Instead proceed to
-the next step,
-<<Changes needed before installing telegraf on fs2>>, below.
-
-Follow the instructions in the <<Preparing fs1>> step above, but this
-time performing them on _fs2_. Then continue with the next step,
-<<Changes needed before installing telegraf on fs2>>, below.
-
-=== Changes needed before installing telegraf on fs2
-
-For this part of the installation it will be necessary to take some
-additional actions:
-
-. Terminate the FS on _fs1_.
-
-. Stop _telegraf_, _metclient_, and _gromet_ (or _metserver_ if it
-being used instead of _gromet_) on _fs1_, as _root_, where _server_
-is either `gromet` or `metserver`:
-
-+
-
-[subs="+quotes"]
-....
-systemctl stop telegraf
-systemctl stop metclient
-systemctl stop _server_
-....
-
-+
-
-NOTE: If neither _gromet_ or _metserver_ is being used, omit the
-`metclient` and _server_ commands. If _metclient_ is not being used,
-omit the command for it.
-
-. If _metserver_ is being used, Move the serial connectors for the
-MET4A and wind sensors to the corresponding connectors on _fs2_.
-
-. If _gromet_ (or _metserver_) is used on _fs2_:
-
-.. Start it as _root_, where _server_ is either `gromet` or
-`metserver`:
-
-+
-
-[subs="+quotes"]
-....
-systemctl start _server_
-....
-
-+
-
-.. As _oper_, start the FS on _fs2_ and verify that met data is being
-received with the command:
-
-    wx
-
-=== Installing telegraf on fs2
-
-Follow the directions in the <<Installing telegraf on fs1>> step
-above, but this time performing the instructions on _fs2_.
-
-NOTE: If _telegraf_ antenna access had to be disabled on _fs1_ to
-eliminate communication errors, it is expected that this will be
-needed on _fs2_ as well.
-
-=== Testing telegraf on fs2
-
-Follow the directions in the <<Testing telegraf on fs1>> step
-above, but this time using _fs2_.
-
-== Finishing up
-
-This section covers the instructions to follow once _telegraf_ has
-been tested successfully on _both_ _fs1_ and _fs2_. It will leave the
-systems configured with _telegraf_ (and _gromet_ or _metserver_, and
-_metclient_, if they are being used) running on _fs1_ and not on
-_fs2_.
-
-=== Finalizing fs2
-
-. Terminate the FS on _fs2_.
-
-. Stop _telegraf_, _gromet_ (or _metserver_), and _metclient_ on
-_fs2_, as _root_ , where _server_ is either `gromet` or `metserver`:
-
-+
-
-[subs="+quotes"]
-....
-systemctl stop telegraf
-systemctl stop metclient
-systemctl stop _server_
-....
-
-+
-
-NOTE: If neither _gromet_ or _metserver_ is being used, omit the
-`metclient` and _server_ commands. If _metclient_ is not being used,
-omit the command for it.
-
-
-. Disable _telegraf_, _gromet_ (or _metserver_), and _metclient_ on
-_fs2_, as _root_, where _server_ is either `gromet` or `metserver`:
-
-+
-
-[subs="+quotes"]
-....
-systemctl disable telegraf
-systemctl disable metclient
-systemctl disable _server_
-....
-
-+
-
-NOTE: If neither _gromet_ or _metserver_ is being used, omit the
-`metclient` and _server_ commands. If _metclient_ is not being used,
-omit the command for it.
-
-=== Finalizing fs1
-
-. If _metserver_ is being used, move the serial connectors for the
-MET4A and wind sensors to the original connectors on _fs1_.
-
-. Start _gromet_ (or _metserver_), _telegraf_ and _metclient_ on
-_fs1_, as _root_, where _server_ is either `gromet` or `metserver`:
-
-+
-
-[subs="+quotes"]
-....
-systemctl start _server_
-systemctl start metclient
-systemctl start telegraf
-....
-
-+
-
-NOTE: If neither _gromet_ or _metserver_ is being used, omit the first
-two commands. If _metclient_ is not being used, omit the command for
-it.
-
-. Start the FS on _fs1_.
-
-. Reverify the second sub-step <<no_problems,Verify there are no other
-problems>> in the <<Testing telegraf on fs1>> step above.
-
-== set_telegraf utility
-
-You may want to install the _set_telegraf_ script, which assumes
-`systemd` (not `initd`) is being used. This script can be used by
-_root_ to change which machine, _fs1_ or _fs2_, runs _telegraf_ (and
-_gromet_) for operations. This works best when _gromet_, instead of
-_metserver_, is used as the server for met. data. You can adjust the
-instructions for using _metserver_. Some notes on doing that are
-provided. If you don't want to install _set_telegraf_, skip ahead to
-the <<Restoring RAIDs>> section below.
-
-=== set_telegraf installation
+The _set_telegraf_ utility can be used to change the state of
+_telegraf_ data collection between _full_ and _partial_. In addition
+when it is set to _full_, the _gromet_ and _metclient_ services are
+enabled; when setting to _partial_, those services are disabled.
+
+Currently, this functionality is only needed for systems with RDBE
+back ends that have _operational_ and _spare_ FS computers. Only one
+_full_ data collection should occur among the two computers. The other
+computer should only use a _partial_ data collection, which is
+basically computer health monitoring.
+
+Normally FS operation occurs on the _operational_ computer, which is
+typically running the _fs1_ system. If the disks for the _fs1_ system
+suffer a catastrophic failure, it will be necessary to move operations
+to the _fs2_ system, probably running on the _spare_ computer. The
+_set_telegraf_ utility provides a way to switch the configuration as
+needed.
+
+The _set_telegraf_ script, assumes `systemd` (not `initd`) is being
+used. This script can be used by _root_ (or optionally an AUID
+account) to change which system, _fs1_ or _fs2_, runs _telegraf_ (and
+_gromet_ and _metclient_) for operations. It can also be used just to
+set the configuration on a system with _full_ to _partial_ to disable
+use of _gromet_ and _metclient_.
+
+== set_telegraf installation
 
 The actions for installing _set_telegraf_ on _fs1_ and _fs2_ are
 almost identical. The two differences are noted as **IMPORTANT** in
 the step <<fs1 set_telegraf installation>> below and summarized in
 <<fs2 set_telegraf installation>> step below.
 
-WARNING: If _metserver_ is being used, it must have been setup on both
-machines already. Additionally, when switching between machines, the
-physical connections to the met. devices will need to moved between
-the computers. When _gromet_ is used, switching the configuration is
-an entirely software operation.
+The instructions assume that _telegraf_ (and _gromet_ and _metclient_)
+have been installed. On the system being used for operations (usually
+_fs1_), _telegraf_ should be in the _full_ configuration (described
+below) and _gromet_ and _metclient_ services should be enabled. On the
+system (usually _fs2_), _telegraf_ should be in the _partial_
+configuration (see below) and the _gromet_ and _metclient_ services
+should be disabled.
 
-==== fs1 set_telegraf installation
+The _full_ configuration for _telegraf_ points the symblic link
+_/etc/telegraf/telegraf.conf_ to _/etc/telegraf/telegraf.conf.full_.
+For the _partial_ configuration, the link points to
+_/etc/telegraf.conf.partial_.
 
-These instructions are performed on _fs1_. To install the
-_set_telegraf_ script, as _root_:
+CAUTION: It is strongly recommended that _gromet_ and all its clients,
+including _telegraf_ (as set in _/etc/telegraf/telegraf.conf_), use
+the _met_server_ (or something other unique) alias as the host name
+for _gromet_. This allows the interface to be changed between the
+local interface (`127.0.0.1`) and the external interface (the IP
+address of the machine) just by editing _/etc/hosts_ and changing
+which interface the alias is assigned to and restarting _gromet_ and
+all its clients. Further, _fs1_ and _fs2_ should use the same alias
+and interface, either the local interface or the external interface
+for that system. This allows the (back up) FS on _fs2_ to access the
+correct interface if it is used for operations without changing
+_/usr2/control/equip.ctl_.
+
+=== fs1 set_telegraf installation
+
+These instructions are performed on _fs1_ by _root_. To install the
+_set_telegraf_ script:
 
 IMPORTANT: For installing on _fs2_, these instructions are performed
 on _fs2_.
 
+. Clone the _set_telegraf_ repository:
 
-. Place a copy of _set_telegraf_ in _/usr/local/sbin_
+   cd /usr2
+   git clone https://github.com/nvi-inc/set_telegraf.git
+   chown -R prog.rtx set_telegraf
 
-  cd /usr/local/sbin
-  cp /usr2/telegraf_install/set_telegraf .
-
-+
-
-CAUTION: If _gromet_ is _not_ being used, the _gromet_ lines in
-_/usr/local/sbin/set_telegraf_ will need to be commented-out or
-replaced with _metserver_ lines, as appropriate.
-
-+
-
-CAUTION: If _metclient_ _is_ being used, the _metclient_ lines in
-_/usr/local/sbin/set_telegraf_ will need to be uncommented.
-
-. Set ownerships and permissions:
+. Place a copy of _set_telegraf_ in _/usr/local/sbin_ and set
+permissions:
 
   cd /usr/local/sbin
-  chown root.root set_telegraf
-  chmod u+rwx,go+r,go-wx, set_telegraf
+  cp /usr2/set_telegraf/set_telegraf .
+  chmod u+rwx,go+r,go-wx set_telegraf
 
-. Save the existing _telegraf_ configuration file, using today's
-_date_ (e.g., `2021Aug19`):
-
-+
-
-[subs="+quotes"]
-....
-cd /etc/telegraf
-mkdir OLD.__date__
-mv telegraf.conf OLD.__date__
-....
+. Enable use with _sudo_ from AUID accounts (optional)
 
 +
 
-. Copy the _/etc/telegraf/OLD.<date>/telegraf.conf_ to
-_/etc/telegraf.conf.full_, using the value of _date_ from the previous
-sub-step:
+If you installed the CIS hardening, you can enable use of
+_set_telegraf_ from AUID accounts that are part of the _operators_
+group.
 
-+
+.. Place a copy of the script that runs _set_telegraf_ with _sudo_ in
+_/usr/local/bin_ and set permissions:
 
-[subs="+quotes"]
-....
-cd /etc/telegraf
-cp OLD._date_/telegraf.conf telegraf.conf.full
-....
+  cd /usr/local/bin
+  cp /usr2/set_telegraf/set_telegraf.sudo set_telegraf
+  chmod u+rwx,go+rx,go-w set_telegraf
 
-. Place a copy of the _telegraf.conf.partial_ in _/etc/telegraf_:
+.. Run _visudo_, then add at end:
 
-  cd /etc/telegraf
-  cp /usr2/telegraf_install/telegraf.conf.partial .
-+
-
-TIP: You may want to update the (commented-out) address for the
-_metserver_ in _telegraf.conf.partial_ to agree with your
-_telegraf.conf.full_ to ease future changes.
-
-. When working on _fs1_, create the symbolic link:
-
-  cd /etc/telegraf
-  ln -sfn telegraf.conf.full telegraf.conf
-
-+
-
-[IMPORTANT]
-====
-
-When working on _fs2_, instead, use:
-
-  cd /etc/telegraf
-  ln -sfn telegraf.conf.partial telegraf.conf
-====
+  %operators	ALL=(ALL) /usr/local/sbin/set_telegraf
 
 ==== fs2 set_telegraf installation
 
 The directions for _fs2_ are identical to the ones for _fs1_, except:
 
 * All work is performed on _fs2_
-
-* The symbolic link is set to point to _telegraf.conf.partial_.
 
 Please follow the directions in the <<fs1 set_telegraf installation>>
 sub-section above with those changes, which are noted as **IMPORTANT**
@@ -549,10 +140,7 @@ there, then proceed to the step <<Testing set_telegraf>> below.
 === Testing set_telegraf
 
 The instructions below, alternately disable and enable _telegraf_ from
-collecting antenna data, and met. data if met. devices are being used.
-They assme that gromet (or _metserver_) are serving data to the
-`localhost`. If not, they must be already configured to serve data to
-the local host's name on each machine.
+collecting antenna data, and met. data. 
 
 CAUTION: Be careful to enter the command on the machine indicated.
 
@@ -586,105 +174,88 @@ data.
 
 If in each case _grafana_ was showing or not showing the data as
 indicated, then the system is checked out and has been returned to the
-operational _telegraf_ being on _fs1_. The _telegraf_ on _fs2_ should
-still be collecting diagnostic information for that computer. This is
-the normal configuration.
+_full_ configuration _telegraf_ being on _fs1_. The _partial_
+configuration _telegraf_ on _fs2_ should still be collecting
+diagnostic information for that system. This is the normal
+configuration.
 
 === Use of set_telegraf
 
 The _set_telegraf_ utility provides a command that can be used to
-switch the configuration of _telegraf_ on the _operational_ and
-_spare_ computer systems. The _telegraf_ configuration on operational
-system is usually the _full_ configuration, collecting data from the
-antenna, FS, datalogger, and met. server, as well as the performance
-data for that computer. The configuration on the spare computer is the
-_partial_ configuration. It only collects the performance data for
-that computer. If for some reason the usual operational disks (_fs1_)
-can't be used (in either the operational or spare computer chassis)
-and spare disks (_fs2_) are pressed into service for operations,
-_set_telegraf_ provides a means to change the telegraf configuration
-on the spare dsks into the operational one, and vice-versa.
+switch the configuration of _telegraf_ on the _fs1_ and _fs2_ systems.
+The _telegraf_ configuration on the _fs1_ system (normally in the
+_operational_ chassis) is usually the _full_ configuration, collecting
+data from the antenna, FS, datalogger, and met. server, as well as the
+performance data for that system. The configuration on the _fs2_
+system (normally in the _spare_ chassis) is the _partial_
+configuration.  It only collects the performance data for that system.
+If for some reason the _fs1_ disk can't be used (in either the
+_operational_ or _spare_ computer chassis) and _fs2_ disks are pressed
+into service for operations, _set_telegraf_ provides a means to change
+the _telegraf_ configuration on the _fs1_ disks to the _partial_ one
+and the configuration on the _fs2_ disks into the _full_ one.
 
 NOTE: The node names of the systems are associated with the disks, not
 the computer chassis. Thus if the _fs1_ disks are moved from the usual
-operational computer chassis to the spare computer chassis, then _fs1_
-is running in the spare computer chassis. If the _fs1_ disks are moved
-to the spare chassis, they can still be used for operations, including
-using the full _telegraf_ configuration.
+_operational_ computer chassis to the _spare_ computer chassis, then
+_fs1_ is running in the _spare_ computer chassis. If the _fs1_ disks
+are moved to the _spare_ chassis, they can still be used for
+operations, including using the _full_ configuration of _telegraf_.
 
-IMPORTANT: It is important that only one _telegraf_ configuration be
-the full one at any given time. As a result, you should always change
-the current full configuration to partial before enabling the full
-configuration on the other computer. If it is not possible to disable
-the current full configuration (for example, the disks won't boot)
-before enabling the other, the system with the previous full
-configuration should be kept off the network until it has been
-switched to partial. This can be done either be keeping it turned off
-or disconnected from the network.
+IMPORTANT: It is important that only one system use the _full_
+configuration of _telegraf_ at any given time. As a result, you should
+always change the current _full_ configuration to _partial_ before
+enabling the _full_ configuration on the other system. If it is not
+possible to disable the current _full_ configuration (for example, the
+disks won't boot) before enabling it on the disks, the system with the
+previous _full_ configuration should be kept off the network until it
+has been switched to _partial_. This can be done either be keeping it
+turned off or disconnecting it from the network.
 
-. To switch the full configuration from _fs1_ to _fs2_:
+NOTE: If your system is CIS hardened and use of _sudo_ has been able
+for _set_telegraf_, all the commands below can be executed from AUID
+accounts that are part of the _operators_ group. The AUID user will
+typically be prompted to enter their AUID account password.
 
-.. Change the _telegraf_ on the _fs1_ disks to `partial`, as _root_:
+. When moving operations to the _fs2_ system:
+
++
+
+To switch the _full_ configuration from _fs1_ to _fs2_:
+
+... Change the _telegraf_ on the _fs1_ disks to `partial`, as _root_
+(or using an AUID account):
 
    set_telegraf partial
 
-.. Change the _telegraf_ on the _fs2_ disks to `full`, as _root_:
+... Change the _telegraf_ on the _fs2_ disks to `full`, as _root_ (or
+using an AUID account):
 
    set_telegraf full
 
-.. If _gromet_ (or _metserver_) was serving data to the network
-instead of `localhost`, then:
+... If _gromet_ was serving data to the network instead of
+`127.0.0.1`, i.e., the alias for _gromet_ (usually `met_server`) is
+assigned to to external interface, you will need to adjust all other
+systems that were getting met. data from _fs1_ to point to _fs2_
+instead.
 
-... If this is the first time you have switched to using `full` on
-_fs2_ since the last _refresh_spare_usr2_, then on _fs2_ you will need
-to:
-
-.... As _oper_, change _/usr2/control/equip.ctl_ to point to _fs2_ for
-the met. data.
-
-... If you are using _metclient_, then you will need to make sure
-`HOST` in _/usr/local/sbin/metclient/metclient_systemd.sh_ points to
-_fs2_.
-
-+
-
-+
-
-+
-
-If not, then as _root_, fix it and then execute:
-
-    systemctl restart metclient
-
-... You will need to adjust all other systems that were getting met.
-data from _fs1_ to point to _fs2_ instead.
-
-When operations can be restored to the _fs1_ computer, switch the
+. When operations can be restored to the _fs1_ system, switch the
 systems back:
 
-. To switch the full configuration from _fs2_ to _fs1_:
++
 
-.. Change the _telegraf_ on the _fs2_ disks to `partial`, as _root_:
+To switch the _full_ configuration from _fs2_ to _fs1_:
+
+... Change the _telegraf_ on the _fs2_ disks to `partial`, as _root_
+(or using an AUID account):
 
    set_telegraf partial
 
-.. Change the _telegraf_ on the _fs1_ disks to `full`, as _root_:
+... Change the _telegraf_ on the _fs1_ disks to `full`, as _root_ (or
+using an AUID account):
 
    set_telegraf full
 
-.. If _gromet_ (or _metserver_) was serving data to the network
-instead of `localhost`, then:
-
-... You will need to adjust all other systems that were getting met.
-data from _fs2_ to point to _fs1_ instead.
-
-== Restoring RAIDs
-
-If everything is still working, follow the _successful_ branch in the
-recoverable test procedure, to recover the RAIDs on both _fs1_ and
-_fs2_ at
-https://nvi-inc.github.io/fsl11/raid.html#_recoverable_testing to:
-
-. Recover the RAID on _fs1_.
-
-. Recover the RAID on _fs2_.
+... If _gromet_ was serving data to the network instead of
+`127.0.0.1`, you will need to adjust all other systems that were
+getting met. data from _fs2_ to point to _fs1_ instead.

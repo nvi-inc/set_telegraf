@@ -83,7 +83,7 @@ fi
 
 if [[ "$state" =~ "$cmd" ]]; then
     if [[ -z "$force" ]] ; then
-        echo "already in $state, use -f to force recommanding"
+        echo "already in $state, use -f to force re-commanding"
         exit 1
      fi
 fi
@@ -119,11 +119,11 @@ if [[ "$cmd" =~ ^full$ ]]; then
     echo "  Enabling gromet"
     systemctl enable gromet
 
-#    echo "  Starting metclient"
-#    systemctl start metclient
+    echo "  Starting metclient"
+    systemctl start metclient
 
-#    echo "  Enabling metclient"
-#    systemctl enable metclient
+    echo "  Enabling metclient"
+    systemctl enable metclient
 
     echo "  Changing directory to /etc/telegraf"
     cd /etc/telegraf
@@ -136,11 +136,11 @@ if [[ "$cmd" =~ ^full$ ]]; then
 else
     echo "  Setting to partial ..."
 
-#    echo "  Stopping metclient"
-#    systemctl stop metclient
+    echo "  Stopping metclient"
+    systemctl stop metclient
 
-#    echo "  Disabling metclient"
-#    systemctl disable metclient
+    echo "  Disabling metclient"
+    systemctl disable metclient
 
     echo "  Stopping gromet"
     systemctl stop gromet

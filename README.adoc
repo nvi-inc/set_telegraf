@@ -1,0 +1,28 @@
+//
+// Copyright (c) 2024 NVI, Inc.
+//
+// This file is part of the FSL11 Linux distribution.
+// (see http://github.com/nvi-inc/fsl11).
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+//
+
+= VLBI set_telegraf utility
+
+This archive contains instructions for installing and using the
+`set_telegraf` utility. It works for systems witth _telegraf_,
+_gromet_, and _metclient_ installed.
+
+Go to the https://nvi-inc.github.io/set_telegraf[document] to get started.
+
